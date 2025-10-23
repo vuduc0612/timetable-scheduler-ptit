@@ -3,10 +3,13 @@ package com.ptit.schedule.service;
 import com.ptit.schedule.dto.RoomRequest;
 import com.ptit.schedule.dto.RoomResponse;
 import com.ptit.schedule.dto.RoomStatusUpdateRequest;
+import com.ptit.schedule.entity.Room;
 import com.ptit.schedule.entity.RoomStatus;
 import com.ptit.schedule.entity.RoomType;
+import com.ptit.schedule.model.RoomPickResult;
 
 import java.util.List;
+import java.util.Set;
 
 public interface RoomService {
 
@@ -36,4 +39,9 @@ public interface RoomService {
     List<RoomResponse> getRoomsByBuildingAndStatus(String day, RoomStatus status);
 
     List<RoomResponse> getRoomsByTypeAndStatus(RoomType type, RoomStatus status);
+
+    // Methods for TimetableSchedulingService
+    RoomPickResult pickRoom(List<Room> rooms, Integer sisoPerClass, Set<Object> occupied,
+            Integer thu, Integer kip, String subjectType, String studentYear,
+            String heDacThu, List<String> weekSchedule);
 }
