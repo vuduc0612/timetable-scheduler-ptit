@@ -105,19 +105,12 @@ public class TimetableSchedulingService {
             // Use PERMANENT lastSlotIdx as starting point for this generation
             sessionLastSlotIdx = lastSlotIdx;
 
-            // SORT: Process 60-period subjects FIRST, then others
+            // IMPORTANT: DO NOT SORT - Keep original order from Frontend (processingOrder)
+            // Frontend already handles the correct order: nonGrouped first, then combined
+            // Sorting here would break the cluster-based processing logic
             List<TKBRequest> sortedItems = new ArrayList<>(request.getItems());
-            sortedItems.sort((a, b) -> {
-                int aTotal = a.getSotiet();
-                int bTotal = b.getSotiet();
-                // 60-period subjects first (descending), then others (ascending)
-                if (aTotal == 60 && bTotal != 60)
-                    return -1; // a first
-                if (aTotal != 60 && bTotal == 60)
-                    return 1; // b first
-                return Integer.compare(aTotal, bTotal); // same priority: sort by total
-            });
-            log.info("Sorted {} subjects with 60-period subjects prioritized first", sortedItems.size());
+            // REMOVED SORTING LOGIC - use original order from frontend
+            log.info("Processing {} subjects in original order (from frontend processingOrder)", sortedItems.size());
 
             for (TKBRequest tkbRequest : sortedItems) {
                 int targetTotal = tkbRequest.getSotiet();
