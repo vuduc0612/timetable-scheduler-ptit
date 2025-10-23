@@ -55,6 +55,8 @@ public class ExcelReaderServiceImpl implements ExcelReaderService {
 
     private SubjectRequest createSubjectFromRow(Row row, DataFormatter formatter) {
         try {
+            String tmp = formatter.formatCellValue(row.getCell(4));
+
             SubjectRequest subject = SubjectRequest.builder()
                     .subjectCode(formatter.formatCellValue(row.getCell(0)))   // A
                     .classYear(formatter.formatCellValue(row.getCell(1)))         // B
@@ -74,7 +76,12 @@ public class ExcelReaderServiceImpl implements ExcelReaderService {
                     .examFormat(formatter.formatCellValue(row.getCell(21)))                    // S
                     .build();
 
-
+            if(tmp != null && !tmp.isBlank()){
+//                System.out.println(subject.getClassYear() + " - " + subject.getMajorId() + " - " + tmp);
+                subject.setProgramType(tmp);
+            } else {
+                subject.setProgramType("Chính quy");
+            }
             return subject;
 
         } catch (Exception e) {

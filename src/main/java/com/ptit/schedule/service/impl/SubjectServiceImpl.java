@@ -1,20 +1,14 @@
 package com.ptit.schedule.service.impl;
 
-import com.ptit.schedule.dto.SubjectRequest;
-import com.ptit.schedule.dto.SubjectResponse;
-import com.ptit.schedule.entity.Faculty;
-import com.ptit.schedule.entity.Major;
-import com.ptit.schedule.entity.Subject;
-import com.ptit.schedule.repository.FacultyRepository;
-import com.ptit.schedule.repository.MajorRepository;
-import com.ptit.schedule.repository.SubjectRepository;
+import com.ptit.schedule.dto.*;
+import com.ptit.schedule.entity.*;
+import com.ptit.schedule.repository.*;
 import com.ptit.schedule.service.SubjectService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -52,6 +46,26 @@ public class SubjectServiceImpl implements SubjectService {
                 .collect(Collectors.toList());
     }
 
+    @Override
+    public List<SubjectMajorDTO> getSubjectAndMajorCodeByClassYear(String classYear, String programType, List<String> majorCodes) {
+        return subjectRepository.findSubjectsWithMajorInfoByMajorCodes(classYear, programType, majorCodes);
+    }
+
+    @Override
+    public List<Set<String>> groupMajorsBySharedSubjects(String classYear, String programType) {
+        // Lấy danh sách môn theo năm học (lọc chính quy, loại môn chung)
+        List<SubjectMajorDTO> subjects = subjectRepository
+                .findSubjectsWithMajorInfoByProgramType(classYear, programType);
+
+        // Gọi hàm grouping logic
+        return groupMajorsBySharedSubjects(subjects);
+    }
+
+    @Override
+    public List<SubjectMajorDTO> getCommonSubjects() {
+        return subjectRepository.findCommonSubjects();
+    }
+
     /**
      * Tạo subject mới
      */
@@ -70,18 +84,19 @@ public class SubjectServiceImpl implements SubjectService {
         }
         // Tạo subject mới
         Subject subject = Subject.builder()
-                .subjectCode(request.getSubjectCode())
-                .subjectName(request.getSubjectName())
+                .subjectCode(request.getSubjectCode().trim())
+                .subjectName(request.getSubjectName().trim())
                 .theoryHours(request.getTheoryHours())
                 .exerciseHours(request.getExerciseHours())
                 .projectHours(request.getProjectHours())
                 .labHours(request.getLabHours())
                 .selfStudyHours(request.getSelfStudyHours())
                 .credits(request.getCredits())
-                .department(request.getDepartment())
-                .examFormat(request.getExamFormat())
+                .department(request.getDepartment().trim())
+                .examFormat(request.getExamFormat().trim())
                 .numberOfClasses(request.getNumberOfClasses())
                 .studentsPerClass(request.getStudentsPerClass())
+                .programType(request.getProgramType().trim())
                 .major(major)
                 .build();
 
@@ -94,8 +109,6 @@ public class SubjectServiceImpl implements SubjectService {
      */
     private Major getOrCreateMajor(SubjectRequest request) {
         // Tìm major theo major code và class year
-
-
         Optional<Major> existingMajor = majorRepository.findByMajorCodeAndClassYear(
                 request.getMajorId(), 
                 request.getClassYear()
@@ -142,8 +155,8 @@ public class SubjectServiceImpl implements SubjectService {
         Major major = getOrCreateMajor(request);
         
         // Cập nhật thông tin subject
-        subject.setSubjectCode(request.getSubjectCode());
-        subject.setSubjectName(request.getSubjectName());
+        subject.setSubjectCode(request.getSubjectCode().trim());
+        subject.setSubjectName(request.getSubjectName().trim());
         subject.setStudentsPerClass(request.getStudentsPerClass());
         subject.setNumberOfClasses(request.getNumberOfClasses());
         subject.setCredits(request.getCredits());
@@ -152,10 +165,10 @@ public class SubjectServiceImpl implements SubjectService {
         subject.setProjectHours(request.getProjectHours());
         subject.setLabHours(request.getLabHours());
         subject.setSelfStudyHours(request.getSelfStudyHours());
-        subject.setDepartment(request.getDepartment());
-        subject.setExamFormat(request.getExamFormat());
+        subject.setDepartment(request.getDepartment().trim());
+        subject.setExamFormat(request.getExamFormat().trim());
         subject.setMajor(major);
-        subject.setProgramType(request.getProgramType());
+        subject.setProgramType(request.getProgramType().trim());
 
         Subject savedSubject = subjectRepository.save(subject);
         return SubjectResponse.fromEntity(savedSubject);
@@ -171,4 +184,62 @@ public class SubjectServiceImpl implements SubjectService {
         }
         subjectRepository.deleteById(id);
     }
+
+
+    public static List<Set<String>> groupMajorsBySharedSubjects(List<SubjectMajorDTO> list) {
+        // subjectCode -> list majorCode học môn đó
+        Map<String, List<String>> subjectToMajors = new HashMap<>();
+        Set<String> allMajors = new HashSet<>(); // lưu tất cả các major có trong danh sách
+
+        for (SubjectMajorDTO sm : list) {
+            subjectToMajors
+                    .computeIfAbsent(sm.getSubjectCode(), k -> new ArrayList<>())
+                    .add(sm.getMajorCode());
+            allMajors.add(sm.getMajorCode());
+        }
+
+        // Xây graph: major -> majors học chung
+        Map<String, Set<String>> graph = new HashMap<>();
+        for (List<String> majors : subjectToMajors.values()) {
+            for (String m1 : majors) {
+                graph.computeIfAbsent(m1, k -> new HashSet<>()); // đảm bảo có node kể cả khi không có cạnh
+                for (String m2 : majors) {
+                    if (!m1.equals(m2))
+                        graph.get(m1).add(m2);
+                }
+            }
+        }
+
+        // Đảm bảo tất cả các major đều có mặt trong graph (ngành học 1 mình)
+        for (String major : allMajors) {
+            graph.computeIfAbsent(major, k -> new HashSet<>());
+        }
+
+        // Duyệt DFS để tìm nhóm liên thông
+        Set<String> visited = new HashSet<>();
+        List<Set<String>> groups = new ArrayList<>();
+
+        for (String major : graph.keySet()) {
+            if (!visited.contains(major)) {
+                Set<String> component = new HashSet<>();
+                dfs(major, graph, visited, component);
+                groups.add(component);
+            }
+        }
+
+        // Trả trực tiếp danh sách nhóm
+        return groups;
+    }
+
+    private static void dfs(String current, Map<String, Set<String>> graph,
+                            Set<String> visited, Set<String> component) {
+        visited.add(current);
+        component.add(current);
+        for (String neighbor : graph.getOrDefault(current, Set.of())) {
+            if (!visited.contains(neighbor)) {
+                dfs(neighbor, graph, visited, component);
+            }
+        }
+    }
+
 }

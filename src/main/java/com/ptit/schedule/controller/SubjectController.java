@@ -1,6 +1,7 @@
 package com.ptit.schedule.controller;
 
 import com.ptit.schedule.dto.ApiResponse;
+import com.ptit.schedule.dto.SubjectMajorDTO;
 import com.ptit.schedule.dto.SubjectRequest;
 import com.ptit.schedule.dto.SubjectResponse;
 import com.ptit.schedule.service.ExcelReaderService;
@@ -21,6 +22,8 @@ import org.springframework.web.multipart.MultipartFile;
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
 
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -173,5 +176,74 @@ public class SubjectController {
         }
     }
 
+    @Operation(
+            summary = "Lấy danh sách môn học và ngành theo khóa",
+            description = "Truyền classYear và programType để lấy danh sách môn học và ngành tương ứng"
+    )
+    @GetMapping("/majors")
+    public ResponseEntity<ApiResponse<List<SubjectMajorDTO>>> getSubjectsAndMajorByMajorCodes(
+            @RequestParam String classYear,
+            @RequestParam String programType,
+            @RequestParam List<String> majorCodes) {  // ✅ List<String>
+        try {
+            List<SubjectMajorDTO> subjects =
+                    subjectService.getSubjectAndMajorCodeByClassYear(classYear, programType, majorCodes);
+
+            ApiResponse<List<SubjectMajorDTO>> response =
+                    ApiResponse.success(subjects, "Lấy danh sách môn học và ngành theo khóa thành công");
+            return ResponseEntity.ok(response);
+        } catch (RuntimeException e) {
+            ApiResponse<List<SubjectMajorDTO>> response = ApiResponse.badRequest(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
+    }
+
+
+    @Operation(
+            summary = "Lấy danh sách nhóm ngành học chung môn",
+            description = "Truyền classYear và programType để lấy danh sách nhóm ngành có môn học chung"
+    )
+    @GetMapping("/group-majors")
+    public ResponseEntity<ApiResponse<List<Set<String>>>> getGroupedMajors(
+            @RequestParam String classYear,
+            @RequestParam String programType) {
+        try {
+            List<Set<String>> groupedMajors = subjectService.groupMajorsBySharedSubjects(classYear, programType);
+
+            if (groupedMajors == null || groupedMajors.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.notFound("Không tìm thấy dữ liệu nhóm ngành cho khóa " + classYear));
+            }
+
+            return ResponseEntity.ok(ApiResponse.success(groupedMajors, "Lấy danh sách nhóm ngành thành công"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Lỗi khi xử lý dữ liệu", e.getMessage(), 500));
+        }
+    }
+
+
+    @Operation(
+            summary = "Lấy danh sách môn chung ",
+            description = "Trả về các môn học chung như Anh văn, Chính trị, Kỹ năng mềm."
+    )
+    @GetMapping("/common-subjects")
+    public ResponseEntity<ApiResponse<List<SubjectMajorDTO>>> getCommonSubjects(
+            @RequestParam String classYear,
+            @RequestParam String programType) {
+        try {
+            List<SubjectMajorDTO> commonSubjects = subjectService.getCommonSubjects();
+
+            if (commonSubjects == null || commonSubjects.isEmpty()) {
+                return ResponseEntity.status(HttpStatus.NOT_FOUND)
+                        .body(ApiResponse.notFound("Không tìm thấy môn chung cho khóa " + classYear));
+            }
+
+            return ResponseEntity.ok(ApiResponse.success(commonSubjects, "Lấy danh sách môn chung thành công"));
+        } catch (RuntimeException e) {
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(ApiResponse.error("Lỗi khi xử lý dữ liệu", e.getMessage(), 500));
+        }
+    }
 
 }
