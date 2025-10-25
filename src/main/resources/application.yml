@@ -35,6 +35,10 @@ springdoc:
     operationsSorter: method
     tagsSorter: alpha
 
+logging:
+  level:
+    com.ptit.schedule: DEBUG
+
 
 #logging:
 #  level:

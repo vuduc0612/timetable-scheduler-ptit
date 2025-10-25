@@ -1,0 +1,239 @@
+package com.ptit.schedule.service.impl;
+
+import com.ptit.schedule.dto.ConflictResult;
+import com.ptit.schedule.dto.ScheduleEntry;
+import com.ptit.schedule.service.ScheduleConflictDetectionService;
+import lombok.extern.slf4j.Slf4j;
+import org.springframework.stereotype.Service;
+
+import java.util.*;
+import java.util.stream.Collectors;
+
+@Slf4j
+@Service
+public class ScheduleConflictDetectionServiceImpl implements ScheduleConflictDetectionService {
+
+    // Helper class to pair ScheduleEntry with its specific TimeSlot
+    private static class ScheduleEntryWithTimeSlot {
+        final ScheduleEntry entry;
+        final ScheduleEntry.TimeSlot timeSlot;
+        
+        ScheduleEntryWithTimeSlot(ScheduleEntry entry, ScheduleEntry.TimeSlot timeSlot) {
+            this.entry = entry;
+            this.timeSlot = timeSlot;
+        }
+    }
+
+    @Override
+    public ConflictResult detectConflicts(List<ScheduleEntry> scheduleEntries) {
+        List<ConflictResult.RoomConflict> roomConflicts = detectRoomConflicts(scheduleEntries);
+        List<ConflictResult.TeacherConflict> teacherConflicts = detectTeacherConflicts(scheduleEntries);
+
+        return ConflictResult.builder()
+                .roomConflicts(roomConflicts)
+                .teacherConflicts(teacherConflicts)
+                .totalConflicts(roomConflicts.size() + teacherConflicts.size())
+                .build();
+    }
+
+    @Override
+    public List<ConflictResult.RoomConflict> detectRoomConflicts(List<ScheduleEntry> scheduleEntries) {
+        log.debug("=== detectRoomConflicts START ===");
+        log.debug("Total schedule entries: {}", scheduleEntries.size());
+        
+        List<ConflictResult.RoomConflict> conflicts = new ArrayList<>();
+
+        // Group by room and time slot key
+        Map<String, Map<String, List<ScheduleEntryWithTimeSlot>>> roomTimeMap = new HashMap<>();
+
+        for (ScheduleEntry entry : scheduleEntries) {
+            if (entry.getTimeSlots() == null) continue;
+            
+            // Bỏ qua các lớp học online (không cần kiểm tra xung đột phòng học)
+            if (isOnlineClass(entry)) {
+                log.debug("Skipping online class: {}", entry.getSubjectName());
+                continue;
+            }
+
+            for (ScheduleEntry.TimeSlot timeSlot : entry.getTimeSlots()) {
+                String room = entry.getRoom();
+                String timeKey = timeSlot.getSlotKey();
+                
+                log.debug("Processing: Subject={}, Room={}, SlotKey={}, DayOfWeek={}", 
+                    entry.getSubjectName(), room, timeKey, timeSlot.getDayOfWeek());
+
+                roomTimeMap
+                        .computeIfAbsent(room, k -> new HashMap<>())
+                        .computeIfAbsent(timeKey, k -> new ArrayList<>())
+                        .add(new ScheduleEntryWithTimeSlot(entry, timeSlot));
+            }
+        }
+
+        log.debug("RoomTimeMap created with {} rooms", roomTimeMap.size());
+
+        // Find conflicts (same room, same time, different subjects)
+        for (Map.Entry<String, Map<String, List<ScheduleEntryWithTimeSlot>>> roomEntry : roomTimeMap.entrySet()) {
+            String room = roomEntry.getKey();
+            
+            log.debug("Checking room: {} with {} time slots", room, roomEntry.getValue().size());
+            
+            for (Map.Entry<String, List<ScheduleEntryWithTimeSlot>> timeEntry : roomEntry.getValue().entrySet()) {
+                String timeSlotKey = timeEntry.getKey();
+                List<ScheduleEntryWithTimeSlot> entriesAtTime = timeEntry.getValue();
+
+                log.debug("Time slot: {}, entries count: {}", timeSlotKey, entriesAtTime.size());
+
+                if (entriesAtTime.size() > 1) {
+                    log.debug("=== POTENTIAL ROOM CONFLICT ===");
+                    log.debug("Room: {}, TimeSlotKey: {}", room, timeSlotKey);
+                    
+                    for (int i = 0; i < entriesAtTime.size(); i++) {
+                        ScheduleEntryWithTimeSlot entry = entriesAtTime.get(i);
+                        log.debug("Entry {}: Subject={}, Teacher={}, DayOfWeek={}", 
+                            i, entry.entry.getSubjectName(), entry.entry.getTeacherName(), entry.timeSlot.getDayOfWeek());
+                    }
+                    
+                    // Remove duplicates (same subject, same teacher)
+                    List<ScheduleEntryWithTimeSlot> uniqueEntries = removeDuplicateEntriesWithTimeSlot(entriesAtTime);
+                    
+                    log.debug("After removing duplicates: {} entries", uniqueEntries.size());
+                    
+                    if (uniqueEntries.size() > 1) {
+                        // Tạo TimeSlot đại diện từ tất cả conflicts thay vì chỉ lấy của entry đầu tiên
+                        ScheduleEntry.TimeSlot representativeTimeSlot = createRepresentativeTimeSlot(timeSlotKey, uniqueEntries);
+                        
+                        List<ScheduleEntry> conflictingSchedules = uniqueEntries.stream()
+                                .map(ewt -> ewt.entry)
+                                .collect(Collectors.toList());
+                        
+                        log.debug("FINAL CONFLICT - Room: {}, TimeSlot: {}, Entries: {}", 
+                                room, representativeTimeSlot.getDisplayInfo(), 
+                                conflictingSchedules.stream().map(s -> s.getSubjectCode()).collect(Collectors.toList()));
+                        
+                        ConflictResult.RoomConflict conflict = ConflictResult.RoomConflict.builder()
+                                .room(room)
+                                .timeSlot(representativeTimeSlot)
+                                .conflictingSchedules(conflictingSchedules)
+                                .build();
+                        conflicts.add(conflict);
+                    }
+                }
+            }
+        }
+
+        log.debug("=== detectRoomConflicts END ===");
+        log.debug("Total conflicts found: {}", conflicts.size());
+        return conflicts;
+    }
+
+    @Override
+    public List<ConflictResult.TeacherConflict> detectTeacherConflicts(List<ScheduleEntry> scheduleEntries) {
+        List<ConflictResult.TeacherConflict> conflicts = new ArrayList<>();
+
+        // Group by teacher and time slot key
+        Map<String, Map<String, List<ScheduleEntryWithTimeSlot>>> teacherTimeMap = new HashMap<>();
+
+        for (ScheduleEntry entry : scheduleEntries) {
+            if (entry.getTimeSlots() == null) continue;
+
+            for (ScheduleEntry.TimeSlot timeSlot : entry.getTimeSlots()) {
+                String teacherId = entry.getTeacherId();
+                String timeKey = timeSlot.getSlotKey();
+
+                teacherTimeMap
+                        .computeIfAbsent(teacherId, k -> new HashMap<>())
+                        .computeIfAbsent(timeKey, k -> new ArrayList<>())
+                        .add(new ScheduleEntryWithTimeSlot(entry, timeSlot));
+            }
+        }
+
+        // Find conflicts (same teacher, same time, different subjects/rooms)
+        for (Map.Entry<String, Map<String, List<ScheduleEntryWithTimeSlot>>> teacherEntry : teacherTimeMap.entrySet()) {
+            String teacherId = teacherEntry.getKey();
+            
+            for (Map.Entry<String, List<ScheduleEntryWithTimeSlot>> timeEntry : teacherEntry.getValue().entrySet()) {
+                List<ScheduleEntryWithTimeSlot> entriesAtTime = timeEntry.getValue();
+
+                if (entriesAtTime.size() > 1) {
+                    // Remove duplicates (same subject, same room)
+                    List<ScheduleEntryWithTimeSlot> uniqueEntries = removeDuplicateEntriesWithTimeSlot(entriesAtTime);
+                    
+                    if (uniqueEntries.size() > 1) {
+                        ScheduleEntryWithTimeSlot firstEntryWithTime = uniqueEntries.get(0);
+                        ScheduleEntry firstEntry = firstEntryWithTime.entry;
+                        ScheduleEntry.TimeSlot conflictTimeSlot = firstEntryWithTime.timeSlot;
+                        
+                        List<ScheduleEntry> conflictingSchedules = uniqueEntries.stream()
+                                .map(ewt -> ewt.entry)
+                                .collect(Collectors.toList());
+                        
+                        ConflictResult.TeacherConflict conflict = ConflictResult.TeacherConflict.builder()
+                                .teacherId(teacherId)
+                                .teacherName(firstEntry.getTeacherName())
+                                .timeSlot(conflictTimeSlot)
+                                .conflictingSchedules(conflictingSchedules)
+                                .build();
+                        conflicts.add(conflict);
+                    }
+                }
+            }
+        }
+
+        return conflicts;
+    }
+
+    /**
+     * Remove duplicate entries with time slot that represent the same teaching session
+     */
+    private List<ScheduleEntryWithTimeSlot> removeDuplicateEntriesWithTimeSlot(List<ScheduleEntryWithTimeSlot> entries) {
+        Map<String, ScheduleEntryWithTimeSlot> uniqueMap = new LinkedHashMap<>();
+        
+        for (ScheduleEntryWithTimeSlot entryWithTime : entries) {
+            ScheduleEntry entry = entryWithTime.entry;
+            String key = entry.getSubjectCode() + "-" + entry.getRoom() + "-" + entry.getTeacherId();
+            uniqueMap.put(key, entryWithTime);
+        }
+        
+        return new ArrayList<>(uniqueMap.values());
+    }
+    
+    /**
+     * Tạo TimeSlot đại diện từ SlotKey và danh sách conflicts
+     */
+    private ScheduleEntry.TimeSlot createRepresentativeTimeSlot(String slotKey, List<ScheduleEntryWithTimeSlot> entries) {
+        // Parse SlotKey: "Tuần 1-Thứ 5-1-1-2"
+        // parts[0]="Tuần", parts[1]="1", parts[2]="Thứ", parts[3]="5", parts[4]="1", parts[5]="1", parts[6]="2"
+        String[] parts = slotKey.split("-");
+        
+        if (parts.length >= 7) {
+            String date = parts[0] + " " + parts[1]; // "Tuần 1"
+            String dayOfWeek = parts[2] + " " + parts[3]; // "Thứ 5"
+            String shift = parts[4];
+            String startPeriod = parts[5]; 
+            String numberOfPeriods = parts[6];
+            
+            return ScheduleEntry.TimeSlot.builder()
+                    .date(date)
+                    .dayOfWeek(dayOfWeek)
+                    .shift(shift)
+                    .startPeriod(startPeriod)
+                    .numberOfPeriods(numberOfPeriods)
+                    .build();
+        }
+        
+        // Fallback: lấy từ entry đầu tiên
+        return entries.get(0).timeSlot;
+    }
+    
+    /**
+     * Check if a schedule entry is for online class (no room conflict needed)
+     */
+    private boolean isOnlineClass(ScheduleEntry entry) {
+        if (entry.getRoom() == null) return false;
+        
+        String room = entry.getRoom().toLowerCase().trim();
+        
+        // Check if room/building contains "online" keyword
+        return room.contains("online") || room.contains("trực tuyến") || room.contains("zoom") || room.contains("meet");
+    }
+}
