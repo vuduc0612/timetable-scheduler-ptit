@@ -2,6 +2,7 @@ package com.ptit.schedule.service;
 
 import com.ptit.schedule.dto.*;
 import com.ptit.schedule.entity.Room;
+import com.ptit.schedule.entity.RoomStatus;
 import com.ptit.schedule.dto.RoomPickResult;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -219,6 +220,9 @@ public class TimetableSchedulingService {
         // Save to JSON
         dataLoaderService.saveGlobalOccupiedRooms(globalOccupied);
 
+        // NEW: Update room statuses in database
+        updateRoomStatusesInDatabase(sessionOccupiedRooms);
+
         // COMMIT sessionLastSlotIdx to permanent lastSlotIdx
         lastSlotIdx = sessionLastSlotIdx;
 
@@ -230,6 +234,77 @@ public class TimetableSchedulingService {
 
         // Clear session after commit
         sessionOccupiedRooms.clear();
+    }
+
+    /**
+     * Update room statuses in database after TKB generation
+     * Changes status from AVAILABLE to OCCUPIED for rooms used in TKB
+     */
+    private void updateRoomStatusesInDatabase(Set<Object> occupiedRooms) {
+        try {
+            log.info("Starting to update room statuses in database for {} occupied room entries", occupiedRooms.size());
+
+            // Extract unique room codes from occupied rooms set
+            // Format: "phong|thu|kip"
+            Set<String> uniqueRoomCodes = new HashSet<>();
+
+            for (Object obj : occupiedRooms) {
+                if (obj instanceof String) {
+                    String occupationKey = (String) obj;
+                    String[] parts = occupationKey.split("\\|");
+                    if (parts.length >= 3) {
+                        String roomCode = parts[0].trim();
+                        if (!roomCode.isEmpty()) {
+                            uniqueRoomCodes.add(roomCode);
+                        }
+                    }
+                }
+            }
+
+            log.info("Found {} unique room codes to update", uniqueRoomCodes.size());
+
+            // Get all rooms from database
+            List<RoomResponse> allRooms = roomService.getAllRooms();
+
+            int updatedCount = 0;
+            int skippedCount = 0;
+            int notFoundCount = 0;
+
+            // Update each room's status to OCCUPIED
+            for (String roomCode : uniqueRoomCodes) {
+                // Find room by code
+                RoomResponse room = allRooms.stream()
+                        .filter(r -> r.getPhong().equals(roomCode))
+                        .findFirst()
+                        .orElse(null);
+
+                if (room == null) {
+                    log.warn("Room with code '{}' not found in database", roomCode);
+                    notFoundCount++;
+                    continue;
+                }
+
+                // Only update if status is AVAILABLE
+                if (room.getStatus() == RoomStatus.AVAILABLE) {
+                    RoomStatusUpdateRequest updateRequest = RoomStatusUpdateRequest.builder()
+                            .status(RoomStatus.OCCUPIED)
+                            .build();
+
+                    roomService.updateRoomStatus(room.getId(), updateRequest);
+                    log.debug("Updated room {} (ID: {}) status to OCCUPIED", roomCode, room.getId());
+                    updatedCount++;
+                } else {
+                    log.debug("Room {} already has status {}, skipping update", roomCode, room.getStatus());
+                    skippedCount++;
+                }
+            }
+
+            log.info("Room status update completed: {} updated, {} skipped, {} not found",
+                    updatedCount, skippedCount, notFoundCount);
+
+        } catch (Exception e) {
+            log.error("Error updating room statuses in database: {}", e.getMessage(), e);
+        }
     }
 
     /**
