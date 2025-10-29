@@ -2,6 +2,8 @@ package com.ptit.schedule.repository;
 
 import com.ptit.schedule.dto.SubjectMajorDTO;
 import com.ptit.schedule.entity.Subject;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -18,7 +20,21 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
 
     @Query("SELECT s FROM Subject s WHERE s.subjectCode = :subjectCode AND s.major.majorCode = :majorCode")
     Optional<Subject> findBySubjectCodeAndMajorCode(@Param("subjectCode") String subjectCode,
-                                                       @Param("majorCode") String majorCode);
+                                                    @Param("majorCode") String majorCode);
+
+    @Query("""
+    SELECT new com.ptit.schedule.dto.SubjectMajorDTO(
+        s.subjectCode,
+        s.subjectName,
+        m.majorCode,
+        m.classYear,
+        m.numberOfStudents,
+        s.studentsPerClass
+    )
+    FROM Subject s
+    JOIN s.major m
+    """)
+    List<SubjectMajorDTO> getAllSubjectsWithMajorInfo();
 
     // Lấy danh sách subject kèm thông tin ngành
     @Query("""
@@ -106,4 +122,14 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
       )
 """)
     List<SubjectMajorDTO> findCommonSubjects();
+
+    /**
+     * Lấy tất cả subjects với pagination
+     */
+    @Query("""
+    SELECT s
+    FROM Subject s
+    JOIN s.major m
+    """)
+    Page<Subject> findAllWithMajorAndFaculty(Pageable pageable);
 }

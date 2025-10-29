@@ -5,6 +5,10 @@ import com.ptit.schedule.entity.*;
 import com.ptit.schedule.repository.*;
 import com.ptit.schedule.service.SubjectService;
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -25,15 +29,40 @@ public class SubjectServiceImpl implements SubjectService {
      */
     @Override
     @Transactional(readOnly = true)
-    public List<SubjectResponse> getAllSubjects() {
-        return subjectRepository.findAll()
-                .stream()
-                .map(SubjectResponse::fromEntity)
-                .collect(Collectors.toList());
+    public List<SubjectMajorDTO> getAllSubjects() {
+        return subjectRepository.getAllSubjectsWithMajorInfo();
     }
-    
 
-    
+    /**
+     * Lấy tất cả subjects với phân trang
+     */
+    @Override
+    @Transactional(readOnly = true)
+    public Page<SubjectFullDTO> getAllSubjectsWithPagination(int page, int size, String sortBy, String sortDir) {
+        try {
+            // Tạo Sort object
+            Sort sort = sortDir.equalsIgnoreCase("desc") ? 
+                Sort.by(sortBy).descending() : 
+                Sort.by(sortBy).ascending();
+            
+            // Tạo Pageable object
+            Pageable pageable = PageRequest.of(page, size, sort);
+            
+            // Lấy data với pagination
+            Page<Subject> subjectPage = subjectRepository.findAllWithMajorAndFaculty(pageable);
+            
+            // Convert Page<Subject> sang Page<SubjectFullDTO>
+            Page<SubjectFullDTO> subjectFullDTOPage = subjectPage.map(SubjectFullDTO::fromEntity);
+            
+            return subjectFullDTOPage;
+            
+        } catch (Exception e) {
+            throw new RuntimeException("Lỗi khi lấy danh sách môn học với phân trang: " + e.getMessage());
+        }
+    }
+
+
+
     /**
      * Lấy subjects theo major ID
      */

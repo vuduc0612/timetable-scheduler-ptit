@@ -1,23 +1,23 @@
 package com.ptit.schedule.service;
 
+import com.ptit.schedule.dto.SubjectFullDTO;
 import com.ptit.schedule.dto.SubjectMajorDTO;
 import com.ptit.schedule.dto.SubjectRequest;
 import com.ptit.schedule.dto.SubjectResponse;
+import org.springframework.data.domain.Page;
 
 import java.util.List;
-import java.util.Map;
 import java.util.Set;
 
 public interface SubjectService {
-    
-    /**
-     * Lấy tất cả subjects
-     */
-    List<SubjectResponse> getAllSubjects();
 
-    /**
-     * Lấy subjects theo major ID
-     */
+    // Lấy tất cả subjects(thông tin đặc trưng) cùng majors
+    List<SubjectMajorDTO> getAllSubjects();
+
+    // Lấy tất cả subjects với phân trang
+    Page<SubjectFullDTO> getAllSubjectsWithPagination(int page, int size, String sortBy, String sortDir);
+
+    // Lấy subjects theo major ID
     List<SubjectResponse> getSubjectsByMajorId(Integer majorId);
 
     // Lấy subject kèm mã ngành theo năm học và loại chương trình
@@ -32,13 +32,9 @@ public interface SubjectService {
     // Tạo subject mới
     SubjectResponse createSubject(SubjectRequest request);
     
-    /**
-     * Cập nhật subject
-     */
+    // Cập nhật subject
     SubjectResponse updateSubject(Long id, SubjectRequest request);
     
-    /**
-     * Xóa subject
-     */
+    // Xóa subject
     void deleteSubject(Long id);
 }

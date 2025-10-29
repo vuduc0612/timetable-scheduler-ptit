@@ -17,7 +17,7 @@ import java.util.stream.Collectors;
 @Transactional
 @RequiredArgsConstructor
 @Slf4j
-public class    MajorBuildingPreferenceService {
+public class MajorBuildingPreferenceService {
 
     private final MajorBuildingPreferenceRepository repository;
 

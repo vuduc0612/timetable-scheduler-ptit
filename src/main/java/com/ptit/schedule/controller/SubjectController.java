@@ -1,9 +1,7 @@
 package com.ptit.schedule.controller;
 
-import com.ptit.schedule.dto.ApiResponse;
-import com.ptit.schedule.dto.SubjectMajorDTO;
-import com.ptit.schedule.dto.SubjectRequest;
-import com.ptit.schedule.dto.SubjectResponse;
+import com.ptit.schedule.dto.*;
+import com.ptit.schedule.entity.Subject;
 import com.ptit.schedule.service.ExcelReaderService;
 import com.ptit.schedule.service.SubjectService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -12,6 +10,7 @@ import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.core.io.ByteArrayResource;
 import org.springframework.core.io.Resource;
+import org.springframework.data.domain.Page;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -21,9 +20,15 @@ import org.springframework.web.multipart.MultipartFile;
 
 import java.io.ByteArrayOutputStream;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 import org.apache.poi.ss.usermodel.*;
 import org.apache.poi.xssf.usermodel.XSSFWorkbook;
@@ -44,15 +49,41 @@ public class SubjectController {
         ApiResponse<String> response = ApiResponse.success("Server is OK");
         return ResponseEntity.ok(response);
     }
+
+
+
     
-    @Operation(summary = "Lấy tất cả môn học", description = "Trả về danh sách tất cả môn học")
+    @Operation(summary = "Lấy tất cả môn học với phân trang", description = "Trả về danh sách môn học với phân trang và sắp xếp")
     @io.swagger.v3.oas.annotations.responses.ApiResponse(responseCode = "200", description = "Thành công")
-    @GetMapping
-    public ResponseEntity<ApiResponse<List<SubjectResponse>>> getAllSubjects() {
-        List<SubjectResponse> subjects = subjectService.getAllSubjects();
-        ApiResponse<List<SubjectResponse>> response = ApiResponse.success(subjects, "Lấy danh sách môn học thành công");
-        return ResponseEntity.ok(response);
+    @GetMapping("")
+    public ResponseEntity<ApiResponse<PagedResponse<SubjectFullDTO>>> getAllSubjectsPaginated(
+            @RequestParam(defaultValue = "0") int page,
+            @RequestParam(defaultValue = "10") int size,
+            @RequestParam(defaultValue = "id") String sortBy,
+            @RequestParam(defaultValue = "asc") String sortDir) {
+
+        try {
+            // Validate parameters
+            if (page < 0) page = 0;
+            if (size <= 0 || size > 100) size = 10; // Limit max size to 100
+
+            Page<SubjectFullDTO> result = subjectService.getAllSubjectsWithPagination(page, size, sortBy, sortDir);
+            PagedResponse<SubjectFullDTO> pagedResponse =  PagedResponse.<SubjectFullDTO>builder()
+                    .page(result.getNumber())
+                    .items(result.getContent().stream().toList())
+                    .totalPages(result.getTotalPages())
+                    .size(result.getSize())
+                    .totalElements(result.getTotalElements())
+                    .build();
+            return ResponseEntity.ok(
+                ApiResponse.success(pagedResponse, "Lấy danh sách môn học với phân trang thành công")
+            );
+        } catch (RuntimeException e) {
+            ApiResponse<PagedResponse<SubjectFullDTO>> response = ApiResponse.badRequest(e.getMessage());
+            return ResponseEntity.status(HttpStatus.BAD_REQUEST).body(response);
+        }
     }
+
 
     
     @Operation(summary = "Lấy môn học theo ngành", description = "Trả về danh sách môn học theo major ID")
