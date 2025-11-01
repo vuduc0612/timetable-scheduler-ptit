@@ -1,7 +1,6 @@
 package com.ptit.schedule.entity;
 
 import jakarta.persistence.*;
-import jakarta.validation.constraints.*;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -16,90 +15,77 @@ import lombok.NoArgsConstructor;
 public class Schedule {
 
     @Id
-    private String id;
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
 
-    @Column(name = "class_number", nullable = false)
-    @NotNull(message = "Class number is required")
-    @Min(value = 1, message = "Class number must be at least 1")
-    private Integer classNumber;  // lop
+    @Column(name = "class_number")
+    private Integer classNumber; // Lớp
 
-    @Column(name = "subject_id", nullable = false)
-    @NotBlank(message = "Subject ID is required")
-    @Size(max = 50, message = "Subject ID must not exceed 50 characters")
-    private String subjectId;  // ma_mon
+    @Column(name = "subject_id")
+    private String subjectId; // Mã môn
 
-    @Column(name = "subject_name", nullable = false)
-    @NotBlank(message = "Subject name is required")
-    @Size(max = 255, message = "Subject name must not exceed 255 characters")
-    private String subjectName;  // ten_mon
-
-    @Column(name = "session_number")
-    private Integer sessionNumber;  // kip
-
-    @Column(name = "day_of_week")
-    @Min(value = 1, message = "Day of week must be between 1-7")
-    @Max(value = 7, message = "Day of week must be between 1-7")
-    private Integer dayOfWeek;  // thu
-
-    @Column(name = "start_period")
-    @Min(value = 1, message = "Start period must be at least 1")
-    @Max(value = 12, message = "Start period must not exceed 12")
-    private Integer startPeriod;  // tiet_bd
-
-    @Column(name = "period_length")
-    @Min(value = 1, message = "Period length must be at least 1")
-    @Max(value = 6, message = "Period length must not exceed 6")
-    private Integer periodLength;  // L
-
-    @Column(name = "room_number")
-    @Size(max = 50, message = "Room number must not exceed 50 characters")
-    private String roomNumber;  // phong
+    @Column(name = "subject_name")
+    private String subjectName; // Tên môn
 
     @Column(name = "student_year")
-    @Size(max = 10, message = "Student year must not exceed 10 characters")
-    private String studentYear;  // student_year
-
-    @Column(name = "special_system")
-    @Size(max = 20, message = "Special system must not exceed 20 characters")
-    private String specialSystem;  // he_dac_thu
+    private String studentYear; // Khóa
 
     @Column(name = "major")
-    @Size(max = 50, message = "Major must not exceed 50 characters")
-    private String major;  // nganh
+    private String major; // Ngành
 
-    @Column(name = "note")
-    @Size(max = 500, message = "Note must not exceed 500 characters")
-    private String note;  // N
+    @Column(name = "special_system")
+    private String specialSystem; // Hệ đặc thù
 
-    // Additional fields for TKB generation
-    @Column(name = "total_periods")
-    private Integer totalPeriods;  // sotiet - Total periods for this subject
+    @Column(name = "day_of_week")
+    private Integer dayOfWeek; // Thứ
 
-    @Column(name = "remaining_periods")
-    private Integer remainingPeriods;  // ai - Remaining periods to schedule
+    @Column(name = "session_number")
+    private Integer sessionNumber; // Kíp
 
-    @Column(name = "periods_used")
-    private Integer periodsUsed;  // ah - Periods used in this session
+    @Column(name = "start_period")
+    private Integer startPeriod; // Tiết BD
 
-    @Column(name = "week_schedule", length = 1000)
-    private String weekSchedule;  // JSON string of weeks 1-18 (O_to_AG)
+    @Column(name = "period_length")
+    private Integer periodLength; // L
 
-    @Column(name = "session_type")
-    private String sessionType;  // 'sang' or 'chieu'
+    @Column(name = "room_number")
+    private String roomNumber; // Mã phòng
 
-    @Column(name = "slot_index")
-    private Integer slotIndex;  // Index in rotating slots
-
-    // TODO: Uncomment when Room entity is ready
-    // @ManyToOne
-    // @JoinColumn(name = "room_id")
-    // private Room room;
-
-    @ManyToOne
-    @JoinColumn(name = "subject_entity_id")
-    private Subject subject;
-
-    @ManyToOne
-    @JoinColumn(name = "major_entity_id")
-    private Major majorEntity;
+    // Tuần 1 đến tuần 18: mỗi tuần là một cột kiểu String (lưu "x" hoặc "")
+    @Column(name = "week_1")
+    private String week1;
+    @Column(name = "week_2")
+    private String week2;
+    @Column(name = "week_3")
+    private String week3;
+    @Column(name = "week_4")
+    private String week4;
+    @Column(name = "week_5")
+    private String week5;
+    @Column(name = "week_6")
+    private String week6;
+    @Column(name = "week_7")
+    private String week7;
+    @Column(name = "week_8")
+    private String week8;
+    @Column(name = "week_9")
+    private String week9;
+    @Column(name = "week_10")
+    private String week10;
+    @Column(name = "week_11")
+    private String week11;
+    @Column(name = "week_12")
+    private String week12;
+    @Column(name = "week_13")
+    private String week13;
+    @Column(name = "week_14")
+    private String week14;
+    @Column(name = "week_15")
+    private String week15;
+    @Column(name = "week_16")
+    private String week16;
+    @Column(name = "week_17")
+    private String week17;
+    @Column(name = "week_18")
+    private String week18;
 }
