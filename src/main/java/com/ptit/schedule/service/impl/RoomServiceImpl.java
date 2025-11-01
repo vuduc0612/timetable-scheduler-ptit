@@ -3,6 +3,7 @@ package com.ptit.schedule.service.impl;
 import com.ptit.schedule.dto.RoomRequest;
 import com.ptit.schedule.dto.RoomResponse;
 import com.ptit.schedule.dto.RoomStatusUpdateRequest;
+import com.ptit.schedule.dto.RoomBulkStatusUpdateRequest;
 import com.ptit.schedule.entity.Room;
 import com.ptit.schedule.entity.RoomStatus;
 import com.ptit.schedule.entity.RoomType;
@@ -107,6 +108,47 @@ public class RoomServiceImpl implements RoomService {
         room.setStatus(statusRequest.getStatus());
         Room updatedRoom = roomRepository.save(room);
         return convertToResponse(updatedRoom);
+    }
+
+    @Override
+    public List<RoomResponse> bulkUpdateRoomStatus(RoomBulkStatusUpdateRequest request) {
+        List<RoomResponse> updatedRooms = new ArrayList<>();
+        List<String> notFoundRooms = new ArrayList<>();
+
+        for (String roomCode : request.getRoomCodes()) {
+            // Parse roomCode format: "G06-A2" or "104-A2" -> phong="G06" or "104", day="A2"
+            String[] parts = roomCode.split("-");
+            if (parts.length != 2) {
+                log.warn("Invalid room code format: {}. Expected format: 'phong-day' (e.g., 'G06-A2')", roomCode);
+                notFoundRooms.add(roomCode);
+                continue;
+            }
+
+            String phong = parts[0];
+            String day = parts[1];
+
+            Optional<Room> roomOpt = roomRepository.findByPhongAndDay(phong, day);
+            if (roomOpt.isPresent()) {
+                Room room = roomOpt.get();
+                room.setStatus(request.getStatus());
+                Room updatedRoom = roomRepository.save(room);
+                updatedRooms.add(convertToResponse(updatedRoom));
+                log.info("Updated room {} status to {}", roomCode, request.getStatus());
+            } else {
+                log.warn("Room not found: {} (phong: {}, day: {})", roomCode, phong, day);
+                notFoundRooms.add(roomCode);
+            }
+        }
+
+        if (!notFoundRooms.isEmpty()) {
+            log.warn("Could not find {} rooms: {}", notFoundRooms.size(), notFoundRooms);
+            // Optionally throw exception if strict mode is needed
+            // throw new RuntimeException("Không tìm thấy các phòng: " + String.join(", ",
+            // notFoundRooms));
+        }
+
+        log.info("Bulk updated {} rooms to status {}", updatedRooms.size(), request.getStatus());
+        return updatedRooms;
     }
 
     @Override

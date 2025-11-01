@@ -113,6 +113,11 @@ public class TimetableSchedulingService {
             // Frontend already handles the correct order: nonGrouped first, then combined
             // Sorting here would break the cluster-based processing logic
             List<TKBRequest> sortedItems = new ArrayList<>(request.getItems());
+            sortedItems.sort((a, b) -> {
+                if (a.getSotiet() == 60 && b.getSotiet() != 60) return -1;
+                if (a.getSotiet() != 60 && b.getSotiet() == 60) return 1;
+                return 0; // Giữ nguyên thứ tự ban đầu cho các môn khác
+            });
             // REMOVED SORTING LOGIC - use original order from frontend
             log.info("Processing {} subjects in original order (from frontend processingOrder)", sortedItems.size());
 

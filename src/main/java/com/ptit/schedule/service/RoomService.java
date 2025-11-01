@@ -3,6 +3,7 @@ package com.ptit.schedule.service;
 import com.ptit.schedule.dto.RoomRequest;
 import com.ptit.schedule.dto.RoomResponse;
 import com.ptit.schedule.dto.RoomStatusUpdateRequest;
+import com.ptit.schedule.dto.RoomBulkStatusUpdateRequest;
 import com.ptit.schedule.entity.Room;
 import com.ptit.schedule.entity.RoomStatus;
 import com.ptit.schedule.entity.RoomType;
@@ -26,6 +27,8 @@ public interface RoomService {
 
     // Status management
     RoomResponse updateRoomStatus(Long id, RoomStatusUpdateRequest statusRequest);
+
+    List<RoomResponse> bulkUpdateRoomStatus(RoomBulkStatusUpdateRequest request);
 
     // Query methods
     List<RoomResponse> getRoomsByBuilding(String day);
