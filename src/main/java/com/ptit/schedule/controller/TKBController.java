@@ -31,14 +31,14 @@ public class TKBController {
             log.info("Generating TKB for subject: {}", request.getSubjectName());
             // Convert single request to batch for unified processing
             TKBBatchRequest batchRequest = TKBBatchRequest.builder()
-                .items(Collections.singletonList(request))
-                .build();
+                    .items(Collections.singletonList(request))
+                    .build();
             TKBBatchResponse response = timetableSchedulingService.simulateExcelFlowBatch(batchRequest);
             return ResponseEntity.ok(ApiResponse.success(response));
         } catch (Exception e) {
             log.error("Error generating TKB: {}", e.getMessage(), e);
             return ResponseEntity.badRequest()
-                .body(ApiResponse.badRequest("Lỗi tạo TKB: " + e.getMessage()));
+                    .body(ApiResponse.badRequest("Lỗi tạo TKB: " + e.getMessage()));
         }
     }
 
@@ -52,21 +52,21 @@ public class TKBController {
         } catch (Exception e) {
             log.error("Error generating TKB batch: {}", e.getMessage(), e);
             TKBBatchResponse errorResponse = TKBBatchResponse.builder()
-                .items(Collections.emptyList())
-                .totalRows(0)
-                .lastSlotIdx(0)
-                .error("Lỗi tạo TKB batch: " + e.getMessage())
-                .build();
+                    .items(Collections.emptyList())
+                    .totalRows(0)
+                    .lastSlotIdx(0)
+                    .error("Lỗi tạo TKB batch: " + e.getMessage())
+                    .build();
             return ResponseEntity.badRequest().body(errorResponse);
         }
     }
-    
+
     @Operation(summary = "Health check", description = "Kiểm tra trạng thái TKB controller")
     @GetMapping("/health")
     public ResponseEntity<String> health() {
         return ResponseEntity.ok("TKB Controller is OK");
     }
-    
+
     @Operation(summary = "Test data loading", description = "Test load template data")
     @GetMapping("/test-data")
     public ResponseEntity<Map<String, Object>> testData() {
@@ -74,12 +74,12 @@ public class TKBController {
             log.info("Testing data loading...");
             var templateData = dataLoaderService.loadTemplateData();
             log.info("Loaded {} template rows", templateData.size());
-            
+
             Map<String, Object> response = new HashMap<>();
             response.put("status", "success");
             response.put("template_rows_count", templateData.size());
             response.put("message", "Data loaded successfully");
-            
+
             return ResponseEntity.ok(response);
         } catch (Exception e) {
             log.error("Error testing data loading: {}", e.getMessage(), e);
@@ -89,7 +89,7 @@ public class TKBController {
             return ResponseEntity.status(500).body(errorResponse);
         }
     }
-    
+
     @Operation(summary = "Reset TKB state", description = "Reset global scheduling state")
     @PostMapping("/reset")
     public ResponseEntity<Map<String, Object>> resetState() {
@@ -105,6 +105,31 @@ public class TKBController {
             errorResponse.put("status", "error");
             errorResponse.put("message", e.getMessage());
             return ResponseEntity.status(500).body(errorResponse);
+        }
+    }
+
+    @Operation(summary = "Reset lastSlotIdx", description = "Reset lastSlotIdx về -1 và lưu vào file")
+    @PostMapping("/reset-last-slot-idx")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> resetLastSlotIdx() {
+        try {
+            timetableSchedulingService.resetLastSlotIdx();
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("lastSlotIdx", -1);
+            result.put("message", "Đã reset lastSlotIdx về -1 và lưu vào file");
+
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
+                    .success(true)
+                    .message("Reset lastSlotIdx thành công")
+                    .data(result)
+                    .build());
+        } catch (Exception e) {
+            log.error("Error resetting lastSlotIdx: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<Map<String, Object>>builder()
+                            .success(false)
+                            .message("Lỗi reset lastSlotIdx: " + e.getMessage())
+                            .build());
         }
     }
 }

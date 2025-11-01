@@ -4,6 +4,7 @@ import com.ptit.schedule.dto.ApiResponse;
 import com.ptit.schedule.dto.RoomRequest;
 import com.ptit.schedule.dto.RoomResponse;
 import com.ptit.schedule.dto.RoomStatusUpdateRequest;
+import com.ptit.schedule.dto.RoomBulkStatusUpdateRequest;
 import com.ptit.schedule.entity.RoomStatus;
 import com.ptit.schedule.entity.RoomType;
 import com.ptit.schedule.service.RoomService;
@@ -91,6 +92,17 @@ public class RoomController {
                 .success(true)
                 .message("Cập nhật trạng thái phòng thành công")
                 .data(room)
+                .build());
+    }
+
+    @PatchMapping("/bulk-status")
+    public ResponseEntity<ApiResponse<List<RoomResponse>>> bulkUpdateRoomStatus(
+            @Valid @RequestBody RoomBulkStatusUpdateRequest request) {
+        List<RoomResponse> updatedRooms = roomService.bulkUpdateRoomStatus(request);
+        return ResponseEntity.ok(ApiResponse.<List<RoomResponse>>builder()
+                .success(true)
+                .message("Cập nhật trạng thái " + updatedRooms.size() + " phòng thành công")
+                .data(updatedRooms)
                 .build());
     }
 

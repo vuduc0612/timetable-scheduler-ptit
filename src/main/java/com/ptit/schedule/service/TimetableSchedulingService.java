@@ -113,6 +113,13 @@ public class TimetableSchedulingService {
             // Frontend already handles the correct order: nonGrouped first, then combined
             // Sorting here would break the cluster-based processing logic
             List<TKBRequest> sortedItems = new ArrayList<>(request.getItems());
+            sortedItems.sort((a, b) -> {
+                if (a.getSotiet() == 60 && b.getSotiet() != 60)
+                    return -1;
+                if (a.getSotiet() != 60 && b.getSotiet() == 60)
+                    return 1;
+                return 0; // Giữ nguyên thứ tự ban đầu cho các môn khác
+            });
             // REMOVED SORTING LOGIC - use original order from frontend
             log.info("Processing {} subjects in original order (from frontend processingOrder)", sortedItems.size());
 
@@ -661,6 +668,21 @@ public class TimetableSchedulingService {
         sessionLastSlotIdx = -1;
 
         log.info("Reset occupied rooms - Cleared {} session rooms, global storage, and lastSlotIdx", sessionCount);
+    }
+
+    /**
+     * Reset lastSlotIdx về -1 và lưu vào file
+     * Called when user wants to reset slot index to start from beginning
+     */
+    public void resetLastSlotIdx() {
+        // Reset trong memory
+        lastSlotIdx = -1;
+        sessionLastSlotIdx = -1;
+
+        // Lưu vào file
+        dataLoaderService.saveLastSlotIdx(-1);
+
+        log.info("Reset lastSlotIdx to -1 and saved to file");
     }
 
     /**
