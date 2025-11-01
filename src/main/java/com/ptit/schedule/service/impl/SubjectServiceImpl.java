@@ -179,7 +179,7 @@ public class SubjectServiceImpl implements SubjectService {
     public SubjectResponse updateSubject(Long id, SubjectRequest request) {
         Subject subject = subjectRepository.findById(id)
                 .orElseThrow(() -> new RuntimeException("Subject not found with id: " + id));
-        
+        System.out.println("Updating subject with id " + id);
         // Kiểm tra major có tồn tại không, nếu không thì tạo mới
         Major major = getOrCreateMajor(request);
         
@@ -198,6 +198,7 @@ public class SubjectServiceImpl implements SubjectService {
         subject.setExamFormat(request.getExamFormat().trim());
         subject.setMajor(major);
         subject.setProgramType(request.getProgramType().trim());
+        subject.setSemester(request.getSemester());
 
         Subject savedSubject = subjectRepository.save(subject);
         return SubjectResponse.fromEntity(savedSubject);

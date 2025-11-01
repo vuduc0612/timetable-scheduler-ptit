@@ -14,6 +14,11 @@ public class SubjectMajorDTO {
     String subjectName;
     String majorCode;
     String classYear;
+    Integer theoryHours;
+    Integer exerciseHours;
+    Integer labHours;
+    Integer projectHours;
+    Integer selfStudyHours;
     Integer numberOfStudents;
     Integer studentPerClass;
 }

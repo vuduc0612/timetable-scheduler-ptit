@@ -28,6 +28,11 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
         s.subjectName,
         m.majorCode,
         m.classYear,
+        s.theoryHours,
+        s.exerciseHours,
+        s.labHours,
+        s.projectHours,
+        s.selfStudyHours,
         m.numberOfStudents,
         s.studentsPerClass
     )
@@ -43,6 +48,11 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
         s.subjectName,
         m.majorCode,
         m.classYear,
+        s.theoryHours,
+        s.exerciseHours,
+        s.labHours,
+        s.projectHours,
+        s.selfStudyHours,
         m.numberOfStudents,
         s.studentsPerClass
     )
@@ -73,6 +83,11 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
         s.subjectName,
         m.majorCode,
         m.classYear,
+        s.theoryHours,
+        s.exerciseHours,
+        s.labHours,
+        s.projectHours,
+        s.selfStudyHours,
         m.numberOfStudents,
         s.studentsPerClass
     )
@@ -105,6 +120,11 @@ public interface SubjectRepository extends JpaRepository<Subject, Long> {
         s.subjectName,
         m.majorCode,
         m.classYear,
+        s.theoryHours,
+        s.exerciseHours,
+        s.labHours,
+        s.projectHours,
+        s.selfStudyHours,
         m.numberOfStudents,
         s.studentsPerClass
     )
