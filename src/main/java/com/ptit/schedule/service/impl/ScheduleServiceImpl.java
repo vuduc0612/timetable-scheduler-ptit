@@ -18,4 +18,34 @@ public class ScheduleServiceImpl implements ScheduleService {
     public void saveAll(List<Schedule> schedules) {
         scheduleRepository.saveAll(schedules);
     }
+
+    @Override
+    public List<Schedule> getAllSchedules() {
+        return scheduleRepository.findAll();
+    }
+
+    @Override
+    public List<Schedule> getSchedulesBySubjectId(String subjectId) {
+        return scheduleRepository.findBySubjectId(subjectId);
+    }
+
+    @Override
+    public List<Schedule> getSchedulesByMajor(String major) {
+        return scheduleRepository.findByMajor(major);
+    }
+
+    @Override
+    public List<Schedule> getSchedulesByStudentYear(String studentYear) {
+        return scheduleRepository.findByStudentYear(studentYear);
+    }
+
+    @Override
+    public void deleteScheduleById(Long id) {
+        scheduleRepository.deleteById(id);
+    }
+
+    @Override
+    public void deleteAllSchedules() {
+        scheduleRepository.deleteAll();
+    }
 }

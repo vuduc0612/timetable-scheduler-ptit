@@ -5,4 +5,10 @@ import java.util.List;
 
 public interface ScheduleService {
     void saveAll(List<Schedule> schedules);
+    List<Schedule> getAllSchedules();
+    List<Schedule> getSchedulesBySubjectId(String subjectId);
+    List<Schedule> getSchedulesByMajor(String major);
+    List<Schedule> getSchedulesByStudentYear(String studentYear);
+    void deleteScheduleById(Long id);
+    void deleteAllSchedules();
 }
