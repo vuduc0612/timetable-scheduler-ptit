@@ -292,4 +292,153 @@ public class DataLoaderService {
             log.error("Error saving lastSlotIdx", e);
         }
     }
+
+    /**
+     * Import data from Excel file and overwrite real.json
+     */
+    public void importDataFromExcel(org.springframework.web.multipart.MultipartFile file) {
+        try {
+            log.info("Importing data from Excel file: {}", file.getOriginalFilename());
+            
+            // Parse Excel file using Apache POI
+            org.apache.poi.ss.usermodel.Workbook workbook;
+            String filename = file.getOriginalFilename();
+            if (filename != null && filename.endsWith(".xlsx")) {
+                workbook = new org.apache.poi.xssf.usermodel.XSSFWorkbook(file.getInputStream());
+            } else {
+                workbook = new org.apache.poi.hssf.usermodel.HSSFWorkbook(file.getInputStream());
+            }
+
+            org.apache.poi.ss.usermodel.Sheet sheet = workbook.getSheetAt(0);
+            List<List<Object>> dataArray = new ArrayList<>();
+
+            // Create FormulaEvaluator to evaluate formulas
+            org.apache.poi.ss.usermodel.FormulaEvaluator formulaEvaluator = workbook.getCreationHelper().createFormulaEvaluator();
+            
+            // Read all rows from Excel
+            for (org.apache.poi.ss.usermodel.Row row : sheet) {
+                if (row == null) {
+                    continue;
+                }
+                
+                List<Object> rowData = new ArrayList<>();
+                // Get the last column number from the row to include all cells
+                int lastColumn = Math.max(row.getLastCellNum(), 0);
+                
+                for (int cn = 0; cn < lastColumn; cn++) {
+                    org.apache.poi.ss.usermodel.Cell cell = row.getCell(cn, org.apache.poi.ss.usermodel.Row.MissingCellPolicy.RETURN_BLANK_AS_NULL);
+                    
+                    if (cell == null) {
+                        rowData.add(null);
+                        continue;
+                    }
+                    
+                    // Get the cell type, evaluating formulas to their result type
+                    org.apache.poi.ss.usermodel.CellType cellType = cell.getCellType();
+                    
+                    // If it's a formula, evaluate it to get the result type
+                    if (cellType == org.apache.poi.ss.usermodel.CellType.FORMULA) {
+                        cellType = cell.getCachedFormulaResultType();
+                    }
+                    
+                    switch (cellType) {
+                        case STRING:
+                            rowData.add(cell.getStringCellValue());
+                            break;
+                        case NUMERIC:
+                            if (org.apache.poi.ss.usermodel.DateUtil.isCellDateFormatted(cell)) {
+                                rowData.add(cell.getDateCellValue().toString());
+                            } else {
+                                // Check if it's an integer
+                                double numValue = cell.getNumericCellValue();
+                                if (numValue == (int) numValue) {
+                                    rowData.add((int) numValue);
+                                } else {
+                                    rowData.add(numValue);
+                                }
+                            }
+                            break;
+                        case BOOLEAN:
+                            rowData.add(cell.getBooleanCellValue());
+                            break;
+                        case BLANK:
+                            rowData.add(null);
+                            break;
+                        case FORMULA:
+                            // This should not happen as we handle FORMULA above
+                            // But as a fallback, try to evaluate the formula
+                            try {
+                                org.apache.poi.ss.usermodel.CellValue cellValue = formulaEvaluator.evaluate(cell);
+                                switch (cellValue.getCellType()) {
+                                    case STRING:
+                                        rowData.add(cellValue.getStringValue());
+                                        break;
+                                    case NUMERIC:
+                                        double evalNumValue = cellValue.getNumberValue();
+                                        if (evalNumValue == (int) evalNumValue) {
+                                            rowData.add((int) evalNumValue);
+                                        } else {
+                                            rowData.add(evalNumValue);
+                                        }
+                                        break;
+                                    case BOOLEAN:
+                                        rowData.add(cellValue.getBooleanValue());
+                                        break;
+                                    default:
+                                        rowData.add(null);
+                                }
+                            } catch (Exception e) {
+                                log.warn("Failed to evaluate formula in cell, using null", e);
+                                rowData.add(null);
+                            }
+                            break;
+                        default:
+                            rowData.add(null);
+                    }
+                }
+                dataArray.add(rowData);
+            }
+
+            workbook.close();
+
+            log.info("Parsed {} rows from Excel", dataArray.size());
+
+            // Create JSON structure
+            Map<String, Object> jsonData = new HashMap<>();
+            jsonData.put("Data", dataArray);
+
+            // Save to real.json (both target and source)
+            try {
+                // Save to target/classes (for current runtime)
+                ClassPathResource resource = new ClassPathResource("real.json");
+                String targetPath = resource.getFile().getAbsolutePath();
+                objectMapper.writerWithDefaultPrettyPrinter().writeValue(new java.io.File(targetPath), jsonData);
+                log.info("Saved imported data to target: {}", targetPath);
+
+                // Also save to src/main/resources (for persistence)
+                String projectRoot = System.getProperty("user.dir");
+                String srcPath = projectRoot + "/src/main/resources/real.json";
+                objectMapper.writerWithDefaultPrettyPrinter().writeValue(new java.io.File(srcPath), jsonData);
+                log.info("Saved imported data to source: {}", srcPath);
+
+            } catch (Exception e) {
+                // Fallback: save to working directory
+                String fallbackPath = System.getProperty("user.dir") + "/real.json";
+                objectMapper.writerWithDefaultPrettyPrinter().writeValue(new java.io.File(fallbackPath), jsonData);
+                log.info("Saved imported data to fallback location: {}", fallbackPath);
+            }
+
+            // Clear cached template data and immediately reload from the new file
+            templateData = null;
+            log.info("Cache cleared, reloading template data from updated real.json...");
+            
+            // Force reload the new data immediately
+            loadTemplateData();
+            log.info("Successfully imported data from Excel, updated real.json, and reloaded {} rows", templateData.size());
+
+        } catch (Exception e) {
+            log.error("Error importing data from Excel", e);
+            throw new RuntimeException("Failed to import data from Excel: " + e.getMessage(), e);
+        }
+    }
 }

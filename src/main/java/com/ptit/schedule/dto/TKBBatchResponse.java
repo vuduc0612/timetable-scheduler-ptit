@@ -16,7 +16,8 @@ import java.util.List;
 @NoArgsConstructor
 public class TKBBatchResponse {
     private List<TKBBatchItemResponse> items;
-    private Integer totalRows;
+    private Integer totalRows; // Total number of rows generated
+    private Integer totalClasses; // Total number of classes (subjects) successfully generated
     private Integer lastSlotIdx;
     private Integer occupiedRoomsCount; // Count of rooms used in this batch
     private String note;

@@ -105,6 +105,7 @@ public class TimetableSchedulingService {
 
             List<TKBBatchItemResponse> itemsOut = new ArrayList<>();
             int totalRows = 0;
+            int totalClasses = 0; // Count successfully processed classes
 
             // Use PERMANENT lastSlotIdx as starting point for this generation
             sessionLastSlotIdx = lastSlotIdx;
@@ -174,6 +175,7 @@ public class TimetableSchedulingService {
                             .rows(resultRows)
                             .build());
                     totalRows += resultRows.size();
+                    totalClasses++; // Increment class count for successfully generated subject
 
                     // Calculate end slot of this major (exact Python logic)
                     // Update TEMPORARY sessionLastSlotIdx (will be committed later)
@@ -191,6 +193,7 @@ public class TimetableSchedulingService {
             return TKBBatchResponse.builder()
                     .items(itemsOut)
                     .totalRows(totalRows)
+                    .totalClasses(totalClasses) // Return total classes successfully generated
                     .lastSlotIdx(sessionLastSlotIdx) // Return temporary value
                     .occupiedRoomsCount(sessionOccupiedRooms.size()) // Return session count
                     .build();

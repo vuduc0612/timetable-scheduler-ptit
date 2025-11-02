@@ -54,6 +54,7 @@ public class TKBController {
             TKBBatchResponse errorResponse = TKBBatchResponse.builder()
                     .items(Collections.emptyList())
                     .totalRows(0)
+                    .totalClasses(0)
                     .lastSlotIdx(0)
                     .error("Lỗi tạo TKB batch: " + e.getMessage())
                     .build();
@@ -129,6 +130,53 @@ public class TKBController {
                     .body(ApiResponse.<Map<String, Object>>builder()
                             .success(false)
                             .message("Lỗi reset lastSlotIdx: " + e.getMessage())
+                            .build());
+        }
+    }
+
+    @Operation(summary = "Import data lịch mẫu", description = "Import file Excel chứa dữ liệu lịch mẫu và ghi đè vào real.json")
+    @PostMapping("/import-data")
+    public ResponseEntity<ApiResponse<Map<String, Object>>> importDataTemplate(
+            @RequestParam("file") org.springframework.web.multipart.MultipartFile file) {
+        try {
+            log.info("Importing data template file: {}", file.getOriginalFilename());
+            
+            // Validate file
+            if (file.isEmpty()) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.<Map<String, Object>>builder()
+                                .success(false)
+                                .message("File không được để trống")
+                                .build());
+            }
+
+            String filename = file.getOriginalFilename();
+            if (filename == null || (!filename.endsWith(".xlsx") && !filename.endsWith(".xls"))) {
+                return ResponseEntity.badRequest()
+                        .body(ApiResponse.<Map<String, Object>>builder()
+                                .success(false)
+                                .message("File phải có định dạng Excel (.xlsx hoặc .xls)")
+                                .build());
+            }
+
+            // Call service to process file and update real.json
+            dataLoaderService.importDataFromExcel(file);
+
+            Map<String, Object> result = new HashMap<>();
+            result.put("filename", filename);
+            result.put("message", "Đã import dữ liệu và cập nhật real.json thành công");
+
+            return ResponseEntity.ok(ApiResponse.<Map<String, Object>>builder()
+                    .success(true)
+                    .message("Import dữ liệu thành công")
+                    .data(result)
+                    .build());
+        } catch (Exception e) {
+            log.error("Error importing data template: {}", e.getMessage(), e);
+            return ResponseEntity.badRequest()
+                    .body(ApiResponse.<Map<String, Object>>builder()
+                            .success(false)
+                            .message("Lỗi import dữ liệu: " + e.getMessage())
                             .build());
         }
     }
